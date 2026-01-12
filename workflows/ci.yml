@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install Clojure tools (cli + cljfmt + clj-kondo)
+        uses: DeLaGuardo/setup-clojure@13.4
+        with:
+          cli: latest
+          cljfmt: latest
+          clj-kondo: latest
+
+      - name: Cache Clojure deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            ~/.deps.clj
+            .cpcache
+          key: cljdeps-${{ runner.os }}-${{ hashFiles('**/deps.edn', '**/bb.edn', '**/project.clj') }}
+          restore-keys: |
+            cljdeps-${{ runner.os }}-
+
+      - name: Pick lab directory from PR branch
+        id: labdir
+        shell: bash
+        run: |
+          ref="${{ github.head_ref }}"   # e.g. "lab/1"
+          if [[ "$ref" =~ ^lab/([0-9]+)$ ]]; then
+            dir="lab${BASH_REMATCH[1]}"
+          else
+            echo "Branch '$ref' does not match lab/N. Falling back to repo root."
+            dir="."
+          fi
+
+          if [[ "$dir" != "." && ! -d "$dir" ]]; then
+            echo "Expected directory '$dir' not found."
+            exit 1
+          fi
+
+          echo "dir=$dir" >> "$GITHUB_OUTPUT"
+          echo "Will run commands in: $dir"
+
+      # === format ===
+      - name: Format check
+        working-directory: ${{ steps.labdir.outputs.dir }}
+        run: cljfmt check .
+
+      # === lint ===
+      - name: Lint check
+        working-directory: ${{ steps.labdir.outputs.dir }}
+        run: clj-kondo --lint .
+
+      # === test ===
+      - name: Test
+        working-directory: ${{ steps.labdir.outputs.dir }}
+        run: |
+          set -o pipefail
+          clojure -X:test
