@@ -86,7 +86,7 @@
 (defn- insert-root [root key-chars val]
   (let [[way left-chars] (get-way root key-chars)]
     (loop [nodes (if (empty? left-chars) (rest (reverse way)) (reverse way))
-           child (if (empty? left-chars) (assoc (last way) :nval val) (create-leaf left-chars val))]
+           child (if (empty? left-chars) (assoc (last way) :nval val :has-value? true) (create-leaf left-chars val))]
       (if (empty? nodes) (assoc root :children (assoc (:children root) (first key-chars) child))
           (let [new-node (first nodes)
                 left-nodes (rest nodes)]
@@ -205,9 +205,9 @@
           another-children (:children another)
           equals-count (= (count node-children) (count another-children))
           equals-fields (and
-                         (= (:nval node-children) (:nval another-children))
-                         (= (:nkey node-children) (:nkey another-children))
-                         (= (:has-value? node-children) (:has-value? another-children)))]
+                         (= (:nval node) (:nval another))
+                         (= (:nkey node) (:nkey another))
+                         (= (:has-value? node) (:has-value? another)))]
       (if (or (not equals-count) (not equals-fields)) false
           (loop [node-keys (keys node-children)]
             (if (empty? node-keys) true

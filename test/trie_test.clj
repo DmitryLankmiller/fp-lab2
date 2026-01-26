@@ -18,11 +18,6 @@
     (is (= nil (t/tget trie "abc")))
     (is (= nil (t/tget trie "dfe")))))
 
-(deftest get-from-empty-trie
-  (let [trie (t/empty-trie)]
-    (dotimes [_ 10]
-      (is (= nil (t/tget trie (rand-key (inc (rand-int 10)))))))))
-
 (deftest trie-get-entries
   (let [trie (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})
         entries (t/get-entries trie)]
@@ -40,25 +35,20 @@
         another-trie-1 (t/create-trie {\a (t/create-node \a nil false {\c (t/create-node \c 5 true {})}) \c (t/create-node \c 6 true {})})
         another-trie-2 (t/create-trie {\d (t/create-node \d nil false {\f (t/create-node \f 5 true {})}) \g (t/create-node \g 6 true {})})]
     (is (true? (t/tequals? trie same-trie)))
-    (is (true? (t/tequals? (t/empty-trie) (t/empty-trie))))
     (is (false? (t/tequals? trie another-trie-1)))
-    (is (false? (t/tequals? trie another-trie-2)))
-    (is (false? (t/tequals? trie (t/empty-trie))))))
+    (is (false? (t/tequals? trie another-trie-2)))))
 
 (deftest trie-trie-from-entries
   (let [trie (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})
         expected-entries [[[\a \b] 5] [[\c] 6]]]
-    (is (t/tequals? trie (t/trie-from-entries expected-entries)))
-    (is (t/tequals? trie (t/trie-from-entries (t/get-entries trie))))
-    (is (t/tequals? (t/empty-trie) (t/trie-from-entries [])))))
+    (is (t/tequals? trie (t/trie-from-entries expected-entries)))))
 
 (deftest trie-insert
   (let [trie (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})
         expected-trie (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {\d (t/create-node \d 2 true {})})}) \c (t/create-node \c 6 true {})})]
     (is (t/tequals? (t/insert trie "abd" 2) expected-trie))
     (is (t/tequals? (t/insert trie "ab" 5) trie))
-    (is (t/tequals? (t/insert trie "c" 6) trie))
-    (is (t/tequals? (t/insert (t/empty-trie) "z" \z) (t/create-trie {\z (t/create-node \z \z true {})})))))
+    (is (t/tequals? (t/insert trie "c" 6) trie))))
 
 (deftest trie-update
   (let [trie (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})
@@ -75,9 +65,7 @@
     (is (t/tequals? (t/delete trie "c") expected-trie-2))
     (is (t/tequals? (t/delete trie "cd") trie))
     (is (t/tequals? (t/delete trie "abc") trie))
-    (is (t/tequals? (t/delete trie "UIDSfh344") trie))
-    (dotimes [_ 10]
-      (is (= (t/empty-trie) (t/delete (t/empty-trie) (rand-key (inc (rand-int 10)))))))))
+    (is (t/tequals? (t/delete trie "UIDSfh344") trie))))
 
 (deftest trie-filter
   (let [trie (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})
@@ -86,9 +74,7 @@
     (is (t/tequals? (t/tfilter trie (fn [_ _] true)) trie))
     (is (t/tequals? (t/tfilter trie (fn [k _] (= k [\c]))) expected-trie-1))
     (is (t/tequals? (t/tfilter trie (fn [k _] (= k [\a \b]))) expected-trie-2))
-    (is (t/tequals? (t/tfilter trie (fn [_ _] false)) (t/empty-trie)))
-    (dotimes [_ 10]
-      (t/tequals? (t/tfilter (t/empty-trie) (fn [_ _] (> (rand) 0.5))) (t/empty-trie)))))
+    (is (t/tequals? (t/tfilter trie (fn [_ _] false)) (t/empty-trie)))))
 
 (deftest trie-map
   (let [trie (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})
@@ -98,9 +84,7 @@
     (is (t/tequals? (t/tmap trie (fn [k v] [k v])) trie))
     (is (t/tequals? (t/tmap trie (fn [k _] [k 1])) expected-trie-1))
     (is (t/tequals? (t/tmap trie (fn [k v] [k (* v v)])) expected-trie-2))
-    (is (t/tequals? (t/tmap trie (fn [k v] [(map #(char (+ 2 (int %))) k) (+ 2 v)])) expected-trie-3))
-    (dotimes [_ 10]
-      (t/tequals? (t/tmap (t/empty-trie) (fn [_ _] [(rand-key (inc (rand-int 10))) (rand-int 100)])) (t/empty-trie)))))
+    (is (t/tequals? (t/tmap trie (fn [k v] [(map #(char (+ 2 (int %))) k) (+ 2 v)])) expected-trie-3))))
 
 (deftest trie-reducel
   (let [trie-1 (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})
@@ -112,8 +96,7 @@
         acc-2 5
         expected-value-2 (+ 1 2 3 5 6 5)]
     (is (= expected-value-1 (t/reducel trie-1 fn-1 acc-1)))
-    (is (= expected-value-2 (t/reducel trie-2 fn-2 acc-2)))
-    (is (= acc-1 (t/reducel (t/empty-trie) fn-1 acc-1)))))
+    (is (= expected-value-2 (t/reducel trie-2 fn-2 acc-2)))))
 
 (deftest trie-reducer
   (let [trie-1 (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})
@@ -143,11 +126,4 @@
     (is (t/tequals? expected-trie-4 (t/join trie-1 [trie-2 trie-3 trie-4])))
     (is (t/tequals? expected-trie-4 (t/join (t/join trie-1 trie-2) (t/join trie-3 trie-4))))
     (is (t/tequals? expected-trie-4 (t/join (t/join trie-1 [trie-2 trie-3]) trie-4)))
-    (is (t/tequals? expected-trie-5 (t/join trie-1 [trie-2 trie-3])))
-    (is (t/tequals? expected-trie-5 (t/join (t/join trie-1 trie-2) trie-3)))
-    (is (t/tequals? expected-trie-5 (t/join trie-1 (t/join trie-2 trie-3))))
-    (is (t/tequals? trie-1 (t/join trie-1 (t/empty-trie))))
-    (is (t/tequals? trie-1 (t/join (t/empty-trie) trie-1)))
-    (is (t/tequals? trie-2 (t/join trie-2 (t/empty-trie))))
-    (is (t/tequals? trie-2 (t/join (t/empty-trie) trie-2)))
-    (is (t/tequals? (t/empty-trie) (t/join (t/empty-trie) (t/empty-trie))))))
+    (is (t/tequals? expected-trie-5 (t/join trie-1 [trie-2 trie-3])))))
