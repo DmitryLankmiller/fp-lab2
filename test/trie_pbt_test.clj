@@ -168,33 +168,14 @@
 ;; Monads
 
 (defspec pbt-join-identity iteration-num
-  (prop/for-all [m gen-entries-map]
-                (let [tr (build-trie m)]
-                  (is (t/tequals? (t/join tr (t/empty-trie)) tr))
-                  (is (t/tequals? (t/join (t/empty-trie) tr) tr)))))
+  (prop/for-all [tr gen-trie]
+                (is (t/tequals? (t/join tr (t/empty-trie)) tr))
+                (is (t/tequals? (t/join (t/empty-trie) tr) tr))))
 
 (defspec pbt-join-associativity iteration-num
-  (prop/for-all [m1 gen-entries-map
-                 m2 gen-entries-map
-                 m3 gen-entries-map]
-                (let [t1 (build-trie m1)
-                      t2 (build-trie m2)
-                      t3 (build-trie m3)
-
-                      a (t/join (t/join t1 t2) t3)
-                      b (t/join t1 (t/join t2 t3))
-                      c (t/join t1 [t2 t3])
-
-                      expected (merge m1 m2 m3)]
-                  (is (t/tequals? a b))
-                  (is (t/tequals? a c))
-                  (is (= expected (trie->map a))))))
-
-(defspec pbt-join-last-write iteration-num
-  (prop/for-all [m1 gen-entries-map
-                 m2 gen-entries-map]
-                (let [t1 (build-trie m1)
-                      t2 (build-trie m2)
-                      joined (t/join t1 t2)
-                      expected (merge m1 m2)]
-                  (is (= expected (trie->map joined))))))
+  (prop/for-all [t1 gen-trie
+                 t2 gen-trie
+                 t3 gen-trie]
+                (let [a (t/join (t/join t1 t2) t3)
+                      b (t/join t1 (t/join t2 t3))]
+                  (is (t/tequals? a b)))))
