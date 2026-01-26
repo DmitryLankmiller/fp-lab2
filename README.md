@@ -282,21 +282,22 @@
 
 ## Тесты
 
-Вспомогательные функции для генерации ключей:
-
-```clojure
-(defn rand-char []
-  (char (+ (int \space) (rand-int (- (int \~) (int \space))))))
-
-(defn rand-key [n] "Generate random key with length n (must be > 1)"
-  {:pre [(>= n 1)]}
-  (apply str (vec (for [_ (range n)]
-                    (rand-char)))))
-```
-
 Текст тестов (названия тестов соответствуют проверяемой логике):
 
 ```clojure
+(ns trie-test
+  (:require [trie :as t]
+            [clojure.test :refer [deftest is]]))
+
+(defn rand-char []
+  (char (+ (int \space) (rand-int (- (int \~) (int \space))))))
+
+(defn rand-key "Generate random key with length n (must be > 1)"
+  [n]
+  {:pre [(>= n 1)]}
+  (apply str (vec (for [_ (range n)]
+                    (rand-char)))))
+
 (deftest trie-get
   (let [trie (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})]
     (is (= 5 (t/tget trie "ab")))
@@ -304,20 +305,16 @@
     (is (= nil (t/tget trie "abc")))
     (is (= nil (t/tget trie "dfe")))))
 
-(deftest get-from-empty-trie
-  (let [trie (t/empty-trie)]
-    (dotimes [i 10]
-      (is (= nil (t/tget trie (rand-key (inc (rand-int 10)))))))))
-
 (deftest trie-get-entries
   (let [trie (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})
         entries (t/get-entries trie)]
     (is (contains? (set entries) [[\a \b] 5]))
     (is (contains? (set entries) [[\c] 6]))
     (loop [left-entries entries]
-      (if-not (empty? left-entries)
-        (let [[k v] (first left-entries)]
-          (is (= v (t/tget trie k))))))))
+      (if (seq left-entries) true
+          (let [[k v] (first left-entries)]
+            (is (= v (t/tget trie k)))
+            (recur (rest left-entries)))))))
 
 (deftest trie-equals
   (let [trie (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})
@@ -325,26 +322,20 @@
         another-trie-1 (t/create-trie {\a (t/create-node \a nil false {\c (t/create-node \c 5 true {})}) \c (t/create-node \c 6 true {})})
         another-trie-2 (t/create-trie {\d (t/create-node \d nil false {\f (t/create-node \f 5 true {})}) \g (t/create-node \g 6 true {})})]
     (is (true? (t/tequals? trie same-trie)))
-    (is (true? (t/tequals? (t/empty-trie) (t/empty-trie))))
     (is (false? (t/tequals? trie another-trie-1)))
-    (is (false? (t/tequals? trie another-trie-2)))
-    (is (false? (t/tequals? trie (t/empty-trie))))))
+    (is (false? (t/tequals? trie another-trie-2)))))
 
 (deftest trie-trie-from-entries
   (let [trie (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})
-        expected-entries [[[\a \b] 5] [[\c] 6]]
-        entries (t/get-entries trie)]
-    (is (t/tequals? trie (t/trie-from-entries expected-entries)))
-    (is (t/tequals? trie (t/trie-from-entries (t/get-entries trie))))
-    (is (t/tequals? (t/empty-trie) (t/trie-from-entries [])))))
+        expected-entries [[[\a \b] 5] [[\c] 6]]]
+    (is (t/tequals? trie (t/trie-from-entries expected-entries)))))
 
 (deftest trie-insert
   (let [trie (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})
         expected-trie (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {\d (t/create-node \d 2 true {})})}) \c (t/create-node \c 6 true {})})]
     (is (t/tequals? (t/insert trie "abd" 2) expected-trie))
     (is (t/tequals? (t/insert trie "ab" 5) trie))
-    (is (t/tequals? (t/insert trie "c" 6) trie))
-    (is (t/tequals? (t/insert (t/empty-trie) "z" \z) (t/create-trie {\z (t/create-node \z \z true {})})))))
+    (is (t/tequals? (t/insert trie "c" 6) trie))))
 
 (deftest trie-update
   (let [trie (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})
@@ -361,20 +352,16 @@
     (is (t/tequals? (t/delete trie "c") expected-trie-2))
     (is (t/tequals? (t/delete trie "cd") trie))
     (is (t/tequals? (t/delete trie "abc") trie))
-    (is (t/tequals? (t/delete trie "UIDSfh344") trie))
-    (dotimes [i 10]
-      (is (= (t/empty-trie) (t/delete (t/empty-trie) (rand-key (inc (rand-int 10)))))))))
+    (is (t/tequals? (t/delete trie "UIDSfh344") trie))))
 
 (deftest trie-filter
   (let [trie (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})
         expected-trie-1 (t/create-trie {\c (t/create-node \c 6 true {})})
         expected-trie-2 (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})})})]
-    (is (t/tequals? (t/tfilter trie (fn [k v] true)) trie))
-    (is (t/tequals? (t/tfilter trie (fn [k v] (= k [\c]))) expected-trie-1))
-    (is (t/tequals? (t/tfilter trie (fn [k v] (= k [\a \b]))) expected-trie-2))
-    (is (t/tequals? (t/tfilter trie (fn [k v] false)) (t/empty-trie)))
-    (dotimes [i 10]
-      (t/tequals? (t/tfilter (t/empty-trie) (fn [k v] (> (rand 0.5)))) (t/empty-trie)))))
+    (is (t/tequals? (t/tfilter trie (fn [_ _] true)) trie))
+    (is (t/tequals? (t/tfilter trie (fn [k _] (= k [\c]))) expected-trie-1))
+    (is (t/tequals? (t/tfilter trie (fn [k _] (= k [\a \b]))) expected-trie-2))
+    (is (t/tequals? (t/tfilter trie (fn [_ _] false)) (t/empty-trie)))))
 
 (deftest trie-map
   (let [trie (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})
@@ -382,15 +369,13 @@
         expected-trie-2 (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 25 true {})}) \c (t/create-node \c 36 true {})})
         expected-trie-3 (t/create-trie {\c (t/create-node \c nil false {\d (t/create-node \d 7 true {})}) \e (t/create-node \e 8 true {})})]
     (is (t/tequals? (t/tmap trie (fn [k v] [k v])) trie))
-    (is (t/tequals? (t/tmap trie (fn [k v] [k 1])) expected-trie-1))
+    (is (t/tequals? (t/tmap trie (fn [k _] [k 1])) expected-trie-1))
     (is (t/tequals? (t/tmap trie (fn [k v] [k (* v v)])) expected-trie-2))
-    (is (t/tequals? (t/tmap trie (fn [k v] [(map #(char (+ 2 (int %))) k) (+ 2 v)])) expected-trie-3))
-    (dotimes [i 10]
-      (t/tequals? (t/tmap (t/empty-trie) (fn [k v] [(rand-key (inc (rand-int 10))) (rand-int 100)])) (t/empty-trie)))))
+    (is (t/tequals? (t/tmap trie (fn [k v] [(map #(char (+ 2 (int %))) k) (+ 2 v)])) expected-trie-3))))
 
 (deftest trie-reducel
   (let [trie-1 (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})
-        fn-1 (fn [acc k v] (str acc v))
+        fn-1 (fn [acc _ v] (str acc v))
         acc-1 "str: "
         expected-value-1 "str: 56"
         trie-2 (t/create-trie {1 (t/create-node 1 nil false {2 (t/create-node 2 5 true {})}) 3 (t/create-node 3 6 true {})})
@@ -402,7 +387,7 @@
 
 (deftest trie-reducer
   (let [trie-1 (t/create-trie {\a (t/create-node \a nil false {\b (t/create-node \b 5 true {})}) \c (t/create-node \c 6 true {})})
-        fn-1 (fn [acc k v] (str acc v))
+        fn-1 (fn [acc _ v] (str acc v))
         acc-1 "str: "
         expected-value-1 "str: 65"
         trie-2 (t/create-trie {1 (t/create-node 1 nil false {2 (t/create-node 2 5 true {})}) 3 (t/create-node 3 6 true {})})
@@ -428,45 +413,154 @@
     (is (t/tequals? expected-trie-4 (t/join trie-1 [trie-2 trie-3 trie-4])))
     (is (t/tequals? expected-trie-4 (t/join (t/join trie-1 trie-2) (t/join trie-3 trie-4))))
     (is (t/tequals? expected-trie-4 (t/join (t/join trie-1 [trie-2 trie-3]) trie-4)))
-    (is (t/tequals? expected-trie-5 (t/join trie-1 [trie-2 trie-3])))
-    (is (t/tequals? expected-trie-5 (t/join (t/join trie-1 trie-2) trie-3)))
-    (is (t/tequals? expected-trie-5 (t/join trie-1 (t/join trie-2 trie-3))))
-    (is (t/tequals? trie-1 (t/join trie-1 (t/empty-trie))))
-    (is (t/tequals? trie-1 (t/join (t/empty-trie) trie-1)))
-    (is (t/tequals? trie-2 (t/join trie-2 (t/empty-trie))))
-    (is (t/tequals? trie-2 (t/join (t/empty-trie) trie-2)))
-    (is (t/tequals? (t/empty-trie) (t/join (t/empty-trie) (t/empty-trie))))))
+    (is (t/tequals? expected-trie-5 (t/join trie-1 [trie-2 trie-3])))))
 ```
 
-Отдельно отмечу property-based тесты.
+Property-based тесты:
 <trie, join> - множество префиксных деревьев с операцией объединения - моноид. Нейтральный элемент - пустое дерево.
 
-Проверка свойств моноида: умножение на нейтральный элемент и ассоциативность:
 
 ```clojure
-(is (t/tequals? expected-trie-5 (t/join trie-1 [trie-2 trie-3])))
-(is (t/tequals? expected-trie-5 (t/join (t/join trie-1 trie-2) trie-3)))
-(is (t/tequals? expected-trie-5 (t/join trie-1 (t/join trie-2 trie-3))))
-(is (t/tequals? trie-1 (t/join trie-1 (t/empty-trie))))
-(is (t/tequals? trie-1 (t/join (t/empty-trie) trie-1)))
-(is (t/tequals? (t/empty-trie) (t/join (t/empty-trie) (t/empty-trie))))
-```
+(defspec pbt-get-from-empty-trie iteration-num
+  (prop/for-all [k gen-key]
+                (is (nil? (t/tget (t/empty-trie) k)))))
 
-Удаление из пустого дерева, а также фильтрация отображение на пустом дереве дадут то же пустое дерево. В случае со свёрткой - вернёт начальное значение `acc`:
-```clojure
-(dotimes [i 10]
-      (is (= (t/empty-trie) (t/delete (t/empty-trie) (rand-key (inc (rand-int 10)))))))
-(dotimes [i 10]
-      (t/tequals? (t/tfilter (t/empty-trie) (fn [k v] (> (rand 0.5)))) (t/empty-trie)))
-(dotimes [i 10]
-      (t/tequals? (t/tmap (t/empty-trie) (fn [k v] [(rand-key (inc (rand-int 10))) (rand-int 100)])) (t/empty-trie)))
-(is (= acc-1 (t/reducel (t/empty-trie) fn-1 acc-1)))
-```
+(defspec pbt-empty-equals-empty iteration-num
+  (prop/for-all [_ gen/boolean]
+                (is (true? (t/tequals? (t/empty-trie) (t/empty-trie))))))
 
-При вставке/обновлении в дереве ключей теми же значениями - дерево не изменится:
-```clojure
-(is (t/tequals? (t/insert trie "ab" 5) trie))
-(is (t/tequals? (t/insert trie "c" 6) trie))
+(defspec pbt-not-equals-empty-for-nonempty iteration-num
+  (prop/for-all [m (gen/such-that (comp not empty?) gen-entries-map 50)]
+                (let [tr (build-trie m)]
+                  (is (false? (t/tequals? tr (t/empty-trie)))))))
+
+(defspec pbt-get-entries-two-way iteration-num
+  (prop/for-all [m gen-entries-map]
+                (let [tr  (build-trie m)
+                      m2  (trie->map tr)
+                      tr2 (build-trie m2)]
+                  (is (t/tequals? tr tr2)))))
+
+(defspec pbt-trie-from-empty-entries-is-empty iteration-num
+  (prop/for-all [_ gen/boolean]
+                (is (t/tequals? (build-trie {}) (t/empty-trie)))))
+
+(defspec pbt-insert-into-empty-works iteration-num
+  (prop/for-all [k gen-key
+                 v gen-value]
+                (let [tr (t/insert (t/empty-trie) k v)]
+                  (is (= v (t/tget tr k))))))
+
+(defspec pbt-insert-then-get iteration-num
+  (prop/for-all [m gen-entries-map
+                 k gen-key
+                 v gen-value]
+                (let [tr (build-trie m)
+                      tr2 (t/insert tr k v)]
+                  (is (= v (t/tget tr2 k))))))
+
+(defspec pbt-delete-from-empty-is-empty iteration-num
+  (prop/for-all [k gen-key]
+                (is (t/tequals? (t/delete (t/empty-trie) k) (t/empty-trie)))))
+
+(defspec pbt-delete-existing-removes-key iteration-num
+  (prop/for-all [m (gen/such-that (comp not empty?) gen-entries-map 50)]
+                (let [k   (first (keys m))
+                      tr  (build-trie m)
+                      tr2 (t/delete tr k)]
+                  (is (not (nil? (t/tget tr k))))
+                  (is (nil? (t/tget tr2 k))))))
+
+(defspec pbt-filter-empty-is-empty iteration-num
+  (prop/for-all [_ gen/boolean]
+                (is (t/tequals? (t/tfilter (t/empty-trie) (fn [_ _] true))
+                                (t/empty-trie)))))
+
+(defspec pbt-filter-correctness iteration-num
+  (prop/for-all [m gen-entries-map
+                 pred-kind (gen/elements [:all :none :short-key :number :bool :kw :str])]
+                (let [pred (case pred-kind
+                             :all       (fn [_ _] true)
+                             :none      (fn [_ _] false)
+                             :short-key (fn [k _] (< (count k) 4))
+                             :number    (fn [_ v] (number? v))
+                             :bool      (fn [_ v] (boolean? v))
+                             :kw        (fn [_ v] (keyword? v))
+                             :str       (fn [_ v] (string? v)))
+                      tr (build-trie m)
+                      tr2 (t/tfilter tr pred)
+                      m2 (trie->map tr2)
+                      expected (into {} (filter (fn [[ks v]]
+                                                  (pred (vec (seq ks)) v))) m)]
+                  (is (= expected m2)))))
+
+(defspec pbt-map-empty-is-empty iteration-num
+  (prop/for-all [_ gen/boolean]
+                (is (t/tequals? (t/tmap (t/empty-trie) (fn [_ _] [(vec (seq "x")) 1]))
+                                (t/empty-trie)))))
+
+(defspec pbt-map-correctness iteration-num
+  (prop/for-all [m gen-entries-map
+                 kind (gen/elements [:id :inc-val :injective-key])]
+                (let [f (case kind
+                          :id (fn [k v] [k v])
+                          :inc-val (fn [k v] [k (if (number? v) (inc v) v)])
+                          :injective-key (fn [k v] [(conj k \x) v]))
+                      tr (build-trie m)
+                      tr2 (t/tmap tr f)
+                      m2 (trie->map tr2)
+                      expected (case kind
+                                 :id m
+                                 :inc-val (into {} (map (fn [[ks v]] [ks (if (number? v) (inc v) v)])) m)
+                                 :injective-key (into {} (map (fn [[ks v]] [(str ks "x") v])) m))]
+                  (is (= expected m2)))))
+
+(defspec pbt-reducel-empty-returns-acc iteration-num
+  (prop/for-all [acc gen/small-integer]
+                (is (= acc (t/reducel (t/empty-trie) (fn [a _ _] (inc a)) acc)))))
+
+(defspec pbt-reduces-sum-and-left-equals-right iteration-num
+  (prop/for-all [m gen-int-entries-map
+                 acc gen/small-integer]
+                (let [tr (build-trie m)
+                      f  (fn [a _ v] (+ a v))
+                      expected (+ acc (reduce + 0 (vals m)))]
+                  (is (= expected (t/reducel tr f acc)))
+                  (is (= expected (t/reducer tr f acc))))))
+
+;; Monads
+
+(defspec pbt-join-identity iteration-num
+  (prop/for-all [m gen-entries-map]
+                (let [tr (build-trie m)]
+                  (is (t/tequals? (t/join tr (t/empty-trie)) tr))
+                  (is (t/tequals? (t/join (t/empty-trie) tr) tr)))))
+
+(defspec pbt-join-associativity iteration-num
+  (prop/for-all [m1 gen-entries-map
+                 m2 gen-entries-map
+                 m3 gen-entries-map]
+                (let [t1 (build-trie m1)
+                      t2 (build-trie m2)
+                      t3 (build-trie m3)
+
+                      a (t/join (t/join t1 t2) t3)
+                      b (t/join t1 (t/join t2 t3))
+                      c (t/join t1 [t2 t3])
+
+                      expected (merge m1 m2 m3)]
+                  (is (t/tequals? a b))
+                  (is (t/tequals? a c))
+                  (is (= expected (trie->map a))))))
+
+(defspec pbt-join-last-write iteration-num
+  (prop/for-all [m1 gen-entries-map
+                 m2 gen-entries-map]
+                (let [t1 (build-trie m1)
+                      t2 (build-trie m2)
+                      joined (t/join t1 t2)
+                      expected (merge m1 m2)]
+                  (is (= expected (trie->map joined))))))
 ```
 
 ## Выводы
