@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Install Clojure tools (cli + cljfmt + clj-kondo)
+        uses: DeLaGuardo/setup-clojure@13.4
+        with:
+          cli: latest
+          cljfmt: latest
+          clj-kondo: latest
+
+      - name: Cache Clojure deps
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.m2/repository
+            ~/.gitlibs
+            ~/.deps.clj
+            .cpcache
+          key: cljdeps-${{ runner.os }}-${{ hashFiles('**/deps.edn', '**/bb.edn', '**/project.clj') }}
+          restore-keys: |
+            cljdeps-${{ runner.os }}-
+
+      # === format ===
+      - name: Format check
+        working-directory: ${{ steps.labdir.outputs.dir }}
+        run: cljfmt check .
+
+      # === lint ===
+      - name: Lint check
+        working-directory: ${{ steps.labdir.outputs.dir }}
+        run: clj-kondo --lint .
+
+      # === test ===
+      - name: Test
+        working-directory: ${{ steps.labdir.outputs.dir }}
+        run: |
+          set -o pipefail
+          clojure -X:test
