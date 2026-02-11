@@ -75,8 +75,7 @@
 
 (defspec pbt-get-entries-two-way iteration-num
   (prop/for-all [tr gen-trie]
-                (let [m  (trie->map tr)
-                      tr2 (build-trie m2)]
+                (let [tr2 (build-trie (trie->map tr))]
                   (is (t/tequals? tr tr2)))))
 
 (defspec pbt-trie-from-empty-entries-is-empty iteration-num
